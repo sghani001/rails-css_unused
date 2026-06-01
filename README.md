@@ -99,8 +99,10 @@ Rails::CssUnused.report
 
 ```bash
 bundle install
-bundle exec rspec
+ruby -Ilib -S rspec
 ```
+
+Maintainers: see [PUBLISHING.md](PUBLISHING.md) for release checklist and RubyGems steps.
 
 ## License
 

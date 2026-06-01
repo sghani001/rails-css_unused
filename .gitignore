@@ -4,3 +4,4 @@
 /tmp/
 /.rspec_status
 /coverage/
+*.gem

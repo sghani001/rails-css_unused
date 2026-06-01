@@ -27,7 +27,7 @@ Gem::Specification.new do |spec|
     if File.directory?(".git")
       `git ls-files -z 2>NUL`.split("\x0").reject { |f| f.start_with?("spec/") }
     else
-      Dir["lib/**/*", "README.md", "LICENSE.txt", "CHANGELOG.md"].select { |f| File.file?(f) }
+      Dir["lib/**/*", "README.md", "LICENSE.txt", "CHANGELOG.md", "PUBLISHING.md"].select { |f| File.file?(f) }
     end
   end
 
