@@ -1,19 +1,38 @@
 # rails-css_unused
 
+[![Gem Version](https://img.shields.io/gem/v/rails-css_unused)](https://rubygems.org/gems/rails-css_unused)
+[![GitHub](https://img.shields.io/github/stars/sghani001/rails-css_unused?style=social)](https://github.com/sghani001/rails-css_unused)
+
 Find **ghost CSS classes** in your Rails app: selectors that exist in your stylesheets but never show up in views or ViewComponents.
 
 Pure static analysis — no browser, no headless Chrome. Built for the usual Rails paths (`app/views`, `app/components`, `app/assets/stylesheets`).
 
-## Install
+## Requirements
 
-Add to your Gemfile:
+- Ruby **>= 3.1**
+- Rails **>= 7.0** (via `railties`)
+
+## Installation
 
 ```ruby
+# Gemfile
 gem "rails-css_unused", group: :development
 ```
 
 ```bash
 bundle install
+```
+
+Or install the gem directly (after it is published on RubyGems):
+
+```bash
+gem install rails-css_unused
+```
+
+During development of this gem itself, use a path install:
+
+```ruby
+gem "rails-css_unused", path: "../rails-css_unused", group: :development
 ```
 
 ## Usage
@@ -68,20 +87,20 @@ Rails::CssUnused.configure do |config|
 end
 ```
 
-Or via `config/application.rb` (optional):
+Optional `config/application.rb` hook:
 
 ```ruby
 config.rails_css_unused = ActiveSupport::OrderedOptions.new
 config.rails_css_unused.ignore_classes = %w[sr-only]
 ```
 
-## Limitations (read this)
+## Limitations
 
 Static analysis cannot see everything:
 
 - **Dynamic classes** — `class="<%= dynamic %>"` may be missed or only partially detected.
-- **Tailwind / utility frameworks** — utilities are often generated at build time; many “ghost” hits are false positives unless you scan compiled `app/assets/builds` and ignore Tailwind layers.
-- **JavaScript-added classes** — Stimulus, React, or `element.classList.add` are not scanned (extend `javascript_paths` only helps for CSS files in JS folders).
+- **Tailwind / utility frameworks** — utilities are often generated at build time; many “ghost” hits are false positives unless you scan compiled `app/assets/builds` and tune `ignore_classes`.
+- **JavaScript-added classes** — Stimulus, React, or `element.classList.add` are not scanned.
 - **@extend / mixins** — SCSS may define classes only used inside other rules; review before deleting.
 
 Treat the report as a **triage list**, not an automatic delete command.
@@ -102,8 +121,12 @@ bundle install
 ruby -Ilib -S rspec
 ```
 
-Maintainers: see [PUBLISHING.md](PUBLISHING.md) for release checklist and RubyGems steps.
+## Contributing
+
+Bug reports and pull requests are welcome on [GitHub](https://github.com/sghani001/rails-css_unused).
+
+Maintainers: see [PUBLISHING.md](PUBLISHING.md) for the release checklist and RubyGems publish steps.
 
 ## License
 
-MIT
+The gem is available as open source under the terms of the [MIT License](LICENSE.txt).

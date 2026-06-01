@@ -4,6 +4,42 @@ Use this document for every release. Copy the **Release block** below, fill in t
 
 ---
 
+## Next step: publish 0.1.0 to RubyGems
+
+GitHub is done (`main` pushed). Do this once, from the gem root:
+
+```bash
+cd D:\projects\rails-gems\rails-css_unused
+
+# 1. Confirm tests and version
+ruby -Ilib -S rspec
+# version should be 0.1.0 in lib/rails/css_unused/version.rb
+
+# 2. Sign in to RubyGems (one time per machine; use API key from https://rubygems.org/profile/api_keys)
+gem signin
+
+# 3. Build and inspect (README.md must appear in the file list)
+gem build rails-css_unused.gemspec
+gem contents rails-css_unused-0.1.0.gem | findstr README
+
+# 4. Push (first publish claims the gem name)
+gem push rails-css_unused-0.1.0.gem
+
+# 5. Tag the release on GitHub
+git tag -a v0.1.0 -m "Release 0.1.0"
+git push origin v0.1.0
+```
+
+After push, verify:
+
+- https://rubygems.org/gems/rails-css_unused
+- `gem install rails-css_unused` in a test app
+- Create a GitHub Release from tag `v0.1.0` and paste the `CHANGELOG.md` section for 0.1.0
+
+**Note:** If MFA is enabled on your RubyGems account, `gem push` may ask for an OTP. The gemspec sets `rubygems_mfa_required` so future releases also require MFA.
+
+---
+
 ## Pre-release checklist
 
 - [ ] All intended changes are merged on the release branch
@@ -15,7 +51,8 @@ Use this document for every release. Copy the **Release block** below, fill in t
 - [ ] `gemspec` `files` list includes everything shipped (`lib/**`, `README.md`, `LICENSE.txt`, `CHANGELOG.md`)
 - [ ] Dependencies and `required_ruby_version` are correct (`railties >= 7.0`, Ruby `>= 3.1.0`)
 - [ ] Breaking changes are called out clearly in the changelog
-- [ ] `gemspec` `authors`, `email`, and `homepage` point to real maintainer / repo URLs
+- [x] `gemspec` `authors`, `email`, and `homepage` point to real maintainer / repo URLs
+- [x] `README.md` is complete and included in the built `.gem` package
 
 ---
 
@@ -208,7 +245,7 @@ First public release. Statically finds CSS class selectors present in stylesheet
 - [ ] `gem build rails-css_unused.gemspec` succeeds
 - [ ] Path install in a Rails 7+ app: `gem "rails-css_unused", path: "..."`
 - [ ] `bin/rails css_unused:report` on that app
-- [ ] Update gemspec author/email/homepage placeholders
+- [x] Update gemspec author/email/homepage placeholders
 
 #### Publication
 

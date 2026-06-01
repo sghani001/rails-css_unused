@@ -21,4 +21,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tailwind / build-time utilities may report false positives
 - Classes added only via JavaScript are not detected
 
-[0.1.0]: https://github.com/your-org/rails-css_unused/releases/tag/v0.1.0
+[0.1.0]: https://github.com/sghani001/rails-css_unused/releases/tag/v0.1.0
