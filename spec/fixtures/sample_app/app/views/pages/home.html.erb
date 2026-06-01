@@ -1,3 +1,9 @@
-<div class="hero-card is-active">
-  <%= tag.span "Hi", class: "greeting-label" %>
+<div class="btn btn-primary">Click me</div>
+<div class="card">
+  <h2 class="card__title">Title</h2>
+  <p class="card__body">Body text</p>
 </div>
+<span class="status-approved">Approved</span>
+<span class="status-cancelled">Cancelled</span>
+<span class="status-requested">Requested</span>
+<div class="<%= current_user.admin? ? 'is-active' : 'is-hidden' %>">Dynamic</div>

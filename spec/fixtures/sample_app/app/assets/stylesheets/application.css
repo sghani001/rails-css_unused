@@ -1,7 +1,28 @@
-.hero-card { display: block; }
-.is-active { color: green; }
-.greeting-label { font-weight: bold; }
-.badge { padding: 2px; }
-.badge--primary { background: blue; }
-.orphan-widget { display: none; }
-.legacy-banner { height: 1px; }
+/* application.css */
+
+/* These should be USED */
+.btn { color: red; }
+.btn-primary { background: blue; }
+.card { padding: 10px; }
+.card__title { font-weight: bold; }
+.card__body { font-size: 14px; }
+.status-approved { color: green; }
+.status-cancelled { color: red; }
+.status-requested { color: orange; }
+.is-active { font-weight: bold; }
+
+/* These should be GHOST (unused) */
+.ghost-one { display: none; }
+.ghost-two { display: none; }
+.old-unused-class { color: purple; }
+
+/* Should NOT appear as class (extension noise) */
+.png { display: none; }
+.css { display: none; }
+.jpg { display: none; }
+
+/* Should NOT appear as class (@import / @charset noise) */
+@charset "UTF-8";
+
+/* :not() — .btn is used, not a new definition */
+a:not(.btn) { text-decoration: none; }
