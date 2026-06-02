@@ -12,6 +12,7 @@ module Rails
     #   Ruby:      html_class: "foo",  css_classes("foo bar"),  "foo bar"
     #   Stimulus:  this.element.classList.add("foo"),  "foo" string literals
     #   Dynamic:   class="<%= cond ? 'foo' : 'bar' %>" — literal parts extracted
+    #   Dynamic vars: status_class = "foo-bar" — string assigned to *_class/*_classes var
     class ViewScanner
       # ── ERB / HTML patterns ──────────────────────────────────────────────
       # class="foo bar baz"  or  class='foo bar'
@@ -37,12 +38,33 @@ module Rails
       # class="<%= expr %>", class="prefix-<%= var %>"  — extracts static parts
       ERB_DYNAMIC_CLASS = /class\s*=\s*["'][^"']*<%=[^%]+%>[^"']*["']/m
 
+      # ── Dynamic class variable detection (v0.2.1) ────────────────────────
+      # Detects string literals assigned to variables whose name ends with
+      # _class, _classes, _style, or _css — and the string contains hyphens
+      # (Ruby variable names cannot contain hyphens, so it must be a value).
+      #
+      # Matches patterns like:
+      #   status_class = "foo-bar"
+      #   button_classes = "btn btn-primary"
+      #   ["Active", "status-active"]          (array element with hyphenated string)
+      #   ["Cancelled", "status-cancelled"]
+      #
+      # Rule: any double- or single-quoted string containing at least one
+      # hyphen is unambiguously a string value (not a Ruby identifier), so
+      # we can safely extract it as a potential class name.
+      #
+      # Pattern 1: variable ending in _class/_classes/_style/_css = "value"
+      DYNAMIC_CLASS_VAR = /\b\w+_(?:class(?:es)?|style|css)\s*=\s*["']([^"'\n]+)["']/
+      #
+      # Pattern 2: any quoted string with hyphens in array/tuple context
+      # e.g. ["Active", "status-active"] — the hyphenated strings are CSS classes
+      HYPHENATED_STRING = /["']([a-zA-Z][a-zA-Z0-9]*(?:-[a-zA-Z0-9]+)+)["']/
+
       # ── Ruby / Stimulus string literals ─────────────────────────────────
       # Any double-quoted string that looks like a space-separated class list
-      # Used when scan_javascript_for_classes or scan_ruby_components is on.
       JS_ADD_CLASS      = /(?:classList\.add|classList\.toggle|classList\.replace)\s*\(\s*["']([^"']+)["']/
-      JS_REMOVE_CLASS   = /(?:classList\.remove)\s*\(\s*["']([^"']+)["']/  # these ARE used
-      RUBY_STRING_CLASSES = /["']([a-zA-Z][a-zA-Z0-9_-]*(?:\s+[a-zA-Z][a-zA-Z0-9_-]*)*)["']/
+      JS_REMOVE_CLASS   = /(?:classList\.remove)\s*\(\s*["']([^"']+)["']/
+      RUBY_STRING_CLASSES = /["']([a-zA-Z][a-zA-Z0-9_-]*(?:\s+[a-zA-Z][a-zA-Z0-9_-]*)*)[\"']/
 
       def initialize(root:, config: CssUnused.configuration)
         @root   = Pathname(root)
@@ -104,7 +126,6 @@ module Rails
           end
         end
 
-        # Also scan Ruby component files if configured
         return unless @config.scan_ruby_components
 
         @config.component_paths.each do |rel|
@@ -132,22 +153,18 @@ module Rails
         ext   = path.extname
         base  = path.basename.to_s
 
-        # ERB / HTML (also used for .html.erb compound names)
         if ext == ".erb" || base.end_with?(".html.erb")
           found.merge extract_erb(content)
         end
 
-        # HAML
         if ext == ".haml" || base.end_with?(".html.haml")
           found.merge extract_haml(content)
         end
 
-        # Slim
         if ext == ".slim" || base.end_with?(".html.slim")
           found.merge extract_slim(content)
         end
 
-        # Ruby files (ViewComponent .rb, Phlex, helpers)
         if ext == ".rb"
           found.merge extract_ruby(content)
         end
@@ -171,10 +188,13 @@ module Rails
         # ERB dynamic class attributes — extract static string parts
         content.scan(ERB_DYNAMIC_CLASS) do
           chunk = Regexp.last_match(0)
-          # Strip ERB tags, grab remaining quoted tokens
           stripped = chunk.gsub(/<%.*?%>/m, " ")
           stripped.scan(/["']([^"']+)["']/) { |m| found.merge tokenize(m[0]) }
         end
+
+        # ── v0.2.1: Dynamic class variable detection ──────────────────────
+        # Detects: status_class = "foo-bar" or button_classes = "btn btn-primary"
+        found.merge extract_dynamic_class_vars(content)
 
         found
       end
@@ -183,7 +203,6 @@ module Rails
         found = Set.new
 
         content.scan(HAML_IMPLICIT) do |m|
-          # m[0] = ".foo.bar" — split on dots
           m[0].split(".").reject(&:empty?).each do |cls|
             found << cls if valid_class?(cls)
           end
@@ -191,6 +210,9 @@ module Rails
 
         content.scan(HAML_HASH_CLASS) { |m| found.merge tokenize(m[0]) }
         content.scan(RUBY_CLASS_KV)   { |m| found.merge tokenize(m[0]) }
+
+        # v0.2.1: detect dynamic class vars in HAML Ruby blocks too
+        found.merge extract_dynamic_class_vars(content)
 
         found
       end
@@ -206,22 +228,25 @@ module Rails
 
         content.scan(RUBY_CLASS_KV) { |m| found.merge tokenize(m[0]) }
 
+        # v0.2.1: detect dynamic class vars in Slim Ruby blocks too
+        found.merge extract_dynamic_class_vars(content)
+
         found
       end
 
       def extract_ruby(content)
         found = Set.new
 
-        # ViewComponent / Phlex: render with class: "foo"
         content.scan(RUBY_CLASS_KV)   { |m| found.merge tokenize(m[0]) }
         content.scan(RUBY_CLASS_ARRAY) { |m| found.merge tokenize(m[0].gsub(/["',]/, " ")) }
 
-        # Loose string literals that look like class name lists (safe: validated below)
         content.scan(RUBY_STRING_CLASSES) do |m|
           tokens = tokenize(m[0])
-          # Only trust them if every token is a plausible CSS class
           found.merge(tokens) if tokens.all? { |t| valid_class?(t) }
         end
+
+        # v0.2.1: detect dynamic class vars in Ruby component files
+        found.merge extract_dynamic_class_vars(content)
 
         found
       end
@@ -233,16 +258,49 @@ module Rails
         found
       end
 
+      # ── v0.2.1: Smart dynamic class variable extraction ──────────────────
+      #
+      # Scans content for two patterns:
+      #
+      # 1. Variables named *_class, *_classes, *_style, *_css assigned a string:
+      #      status_class = "foo-bar"        => extracts "foo-bar"
+      #      button_classes = "btn btn-sm"   => extracts "btn", "btn-sm"
+      #
+      # 2. Any quoted string containing a hyphen (unambiguous: Ruby variable
+      #    names cannot contain hyphens, so hyphenated quoted strings MUST be
+      #    string values, never variable names):
+      #      ["Active", "status-active"]     => extracts "status-active"
+      #      ["Cancelled", "status-cancelled"] => extracts "status-cancelled"
+      #
+      # This directly solves the false-positive problem where classes like
+      # status-approved, status-cancelled, status-requested were flagged as
+      # ghost classes because they were assigned to a variable (status_class)
+      # and used via <%= status_class %> interpolation.
+      def extract_dynamic_class_vars(content)
+        found = Set.new
+
+        # Pattern 1: *_class/*_classes variable assignments
+        content.scan(DYNAMIC_CLASS_VAR) do |m|
+          tokenize(m[0]).each { |cls| found << cls if valid_class?(cls) }
+        end
+
+        # Pattern 2: hyphenated string literals (unambiguously CSS class values)
+        content.scan(HYPHENATED_STRING) do |m|
+          cls = m[0].strip
+          found << cls if valid_class?(cls)
+        end
+
+        found
+      end
+
       # ── Helpers ───────────────────────────────────────────────────────────
 
-      # Splits a raw class attribute value into individual class tokens.
-      # Handles: spaces, commas, quotes, ERB fragments.
       def tokenize(raw)
         return Set.new if raw.nil?
 
         raw
-          .gsub(/["']/, " ")               # strip stray quotes
-          .split(/[\s,]+/)                  # split on whitespace/commas
+          .gsub(/["']/, " ")
+          .split(/[\s,]+/)
           .map { |t| t.strip.delete_prefix(".") }
           .reject(&:empty?)
           .reject { |t| t.include?("<%") || t.include?('#{') }
@@ -250,9 +308,6 @@ module Rails
           .to_set
       end
 
-      # A valid CSS class token: starts with a letter or underscore,
-      # contains only alphanumeric, hyphens, underscores.
-      # Allows BEM: block__element--modifier
       def valid_class?(token)
         token.match?(/\A-?[a-zA-Z_][a-zA-Z0-9_-]*\z/)
       end
